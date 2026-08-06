@@ -12,14 +12,20 @@ import { updateMetadata } from './commands/update-metadata.js';
 import { launch } from './commands/launch.js';
 import { buy, sell } from './commands/trade.js';
 import { curveStatus } from './commands/curve.js';
+import { claim } from './commands/claim.js';
+import { owner } from './commands/owner.js';
+import { preflight } from './commands/preflight.js';
 
 const COMMANDS = {
   keygen: { run: keygen, help: 'Generate a local payer keypair' },
   airdrop: { run: airdrop, help: 'Request devnet/testnet SOL for the payer' },
+  preflight: { run: preflight, help: 'Check everything is ready before a real launch' },
   launch: { run: launch, help: 'Launch on a bonding curve — mint + market in one go (tradeable)' },
   buy: { run: buy, help: 'Buy off the curve      (--amount <SOL>)' },
   sell: { run: sell, help: 'Sell into the curve    (--amount <tokens>)' },
   curve: { run: curveStatus, help: 'Curve price, SOL raised, progress to graduation' },
+  claim: { run: claim, help: 'Sweep your accrued trading fees (creator + partner) to your wallet' },
+  owner: { run: owner, help: 'Every role and authority on the launch, and whether you hold it' },
   create: { run: create, help: 'Create a plain SPL token instead (no market)' },
   mint: { run: mint, help: 'Mint additional supply  (--amount, --to)' },
   transfer: { run: transfer, help: 'Send tokens         (--amount, --to)' },

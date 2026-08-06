@@ -1,24 +1,11 @@
-import { PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
+import { sendAndConfirmTransaction } from '@solana/web3.js';
 import BN from 'bn.js';
-import { buildContext } from '../context.js';
+import { buildContext, resolvePool } from '../context.js';
 import { explorerUrl, fromBaseUnits, loadDeployment, toBaseUnits } from '../config.js';
 import { SwapMode } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { dbcClient, lamportsToSol, solToLamports } from '../dbc.js';
 
 const DEFAULT_SLIPPAGE_BPS = 100;
-
-function resolvePool(argv) {
-  if (argv.pool) return new PublicKey(argv.pool);
-
-  const deployment = loadDeployment(argv.cluster);
-  if (!deployment?.pool) {
-    throw new Error(
-      `No pool given and none recorded for ${argv.cluster}.\n` +
-        'Pass --pool <address>, or run "npm run launch" first.'
-    );
-  }
-  return new PublicKey(deployment.pool);
-}
 
 /** Buy the token off the curve with SOL. `--amount` is SOL to spend. */
 export function buy(argv) {

@@ -9,6 +9,11 @@ import { readKeypairFile } from '../wallet.js';
 // Config account, pool account, mint, metadata, vaults, plus fees.
 const MIN_SOL = 0.1;
 
+const AUTHORITY_DESCRIPTION = {
+  immutable: 'immutable — metadata fixed forever, supply fixed',
+  update: 'you keep metadata update authority; supply fixed either way',
+};
+
 /**
  * Launch the token on a Meteora Dynamic Bonding Curve.
  *
@@ -50,15 +55,25 @@ export async function launch(argv) {
   console.log(`Migration at:       ${curve.migrationMarketCapSol} SOL market cap`);
   console.log(`  ≈ SOL raised:     ${migrationSol.toFixed(3)} SOL before it graduates to DAMM v2`);
   console.log(`Trading fee:        ${curve.baseFeeBps / 100}%${curve.dynamicFeeEnabled ? ' + dynamic' : ''}`);
-  console.log(`  your share:       ${curve.creatorTradingFeePercentage}% of that, paid in SOL`);
-  console.log(`Creator LP:         100% permanently locked at migration`);
-  console.log(`Mint authority:     none (supply fixed at creation)`);
+  console.log(`  goes to you:      creator + partner fees, both claimable with "npm run claim"`);
+  console.log(`Creator LP:         ${curve.lpOwnership === 'locked' ? '100% permanently locked at migration' : '90% claimable by you after migration, 10% locked (the chain minimum)'}`);
+  console.log(`Token authority:    ${AUTHORITY_DESCRIPTION[curve.tokenAuthority]}`);
   console.log(`Your first buy:     ${curve.firstBuySol} SOL`);
 
-  if (!token.metadataUri) {
+  if (curve.lpOwnership === 'max-claimable') {
     console.log(
-      '\nWarning: metadataUri is empty. The launch is immutable, so the token will have no logo\n' +
-        'permanently — this cannot be fixed after launch. Host assets/metadata.json first.'
+      '\nWarning: claimable LP means you can withdraw most of the liquidity backing the token\n' +
+        'after migration. Holders can read that setting on chain and price it in.'
+    );
+  }
+  if (!token.metadataUri) {
+    const fixable = curve.tokenAuthority !== 'immutable';
+    console.log(
+      `\nWarning: metadataUri is empty, so the token launches with no logo.${
+        fixable
+          ? '\nYou keep the update authority, so this is fixable later — but wallets show it bare until then.'
+          : '\nThis launch is immutable, so that cannot be fixed afterwards. Host assets/metadata.json first.'
+      }`
     );
   }
 
@@ -67,7 +82,8 @@ export async function launch(argv) {
     return;
   }
 
-  if (!token.metadataUri && !argv.allowNoLogo) {
+  // Only a hard blocker when it cannot be fixed afterwards.
+  if (!token.metadataUri && curve.tokenAuthority === 'immutable' && !argv.allowNoLogo) {
     throw new Error('Refusing to launch permanently without a logo. Set metadataUri, or pass --allow-no-logo.');
   }
 
@@ -140,7 +156,11 @@ export async function launch(argv) {
     initialMarketCapSol: curve.initialMarketCapSol,
     migrationMarketCapSol: curve.migrationMarketCapSol,
     migrationQuoteThresholdSol: migrationSol,
+    tokenAuthority: curve.tokenAuthority,
+    lpOwnership: curve.lpOwnership,
     creator: payer.publicKey.toBase58(),
+    feeClaimer: payer.publicKey.toBase58(),
+    leftoverReceiver: payer.publicKey.toBase58(),
     launchedAt: new Date().toISOString(),
     status: 'launched',
   };

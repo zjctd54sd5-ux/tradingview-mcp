@@ -41,6 +41,23 @@ export function buildContext(argv, { requireSigner = true } = {}) {
 }
 
 /**
+ * Resolve the curve pool to operate on: an explicit --pool wins, otherwise fall
+ * back to the pool recorded by `launch` for this cluster.
+ */
+export function resolvePool(argv) {
+  if (argv.pool) return new PublicKey(argv.pool);
+
+  const deployment = loadDeployment(argv.cluster);
+  if (!deployment?.pool) {
+    throw new Error(
+      `No pool given and none recorded for ${argv.cluster}.\n` +
+        'Pass --pool <address>, or run "npm run launch" first.'
+    );
+  }
+  return new PublicKey(deployment.pool);
+}
+
+/**
  * Resolve the mint to operate on: an explicit --mint wins, otherwise fall back
  * to the mint recorded by `create` for this cluster.
  */

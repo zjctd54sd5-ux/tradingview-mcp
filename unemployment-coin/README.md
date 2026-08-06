@@ -55,28 +55,58 @@ If the public devnet faucet is rate limited, get SOL from
 | `initialMarketCapSol` | Market cap at the first buy — sets the starting price |
 | `migrationMarketCapSol` | Market cap at which the pool graduates to a real AMM |
 | `baseFeeBps` | Trading fee, 100 = 1% |
-| `creatorTradingFeePercentage` | Your cut of that fee, paid in SOL |
+| `creatorTradingFeePercentage` | Split between your creator and partner buckets — both are your wallet |
 | `dynamicFeeEnabled` | Add a volatility surcharge on top of the base fee |
 | `firstBuySol` | SOL you spend buying your own token in the launch tx |
+| `tokenAuthority` | `update` (keep metadata authority) or `immutable` |
+| `lpOwnership` | `locked` or `max-claimable` (see below) |
 
 The SOL needed to graduate is *derived* from the two market caps, not set
 directly. The committed defaults (30 → 400 SOL) work out to ~86 SOL raised;
 `launch` prints the exact figure before it sends anything.
 
-The launch is deliberately opinionated:
+## What you own
 
-- **Supply is fixed.** The mint is created with no mint authority, so nothing —
-  including this CLI — can inflate it later.
-- **Metadata is immutable.** Name, symbol, and logo are set permanently at
-  launch. There is no `update-metadata` for a curve launch, which is why
-  `launch` refuses to run without a `metadataUri` unless you pass
-  `--allow-no-logo`.
-- **Creator LP is 100% permanently locked** at graduation, so liquidity cannot
-  be pulled out from under holders.
-- **Fees are collected in SOL**, not in UNEMP, so your fee income does not
-  create sell pressure on the token.
+A launch points every role at your wallet — pool creator, fee claimer, and
+leftover receiver. `npm run owner` reads them back off chain and marks each one
+`<- you` or `(NOT you)`, so ownership is verified rather than assumed.
 
-Changing any of that means editing `buildLaunchCurve` in `src/dbc.js`.
+| Thing | Who has it |
+|---|---|
+| Trading fees | You, both buckets — `npm run claim` |
+| Unsold tokens after migration | You, as leftover receiver |
+| Metadata (name, symbol, logo) | You, while `tokenAuthority` is `update` |
+| Supply | Nobody — permanently fixed at launch |
+| Post-migration liquidity | Depends on `lpOwnership` |
+
+**Two things the chain will not let you own**, found by trying them:
+
+- **Mint authority.** The `CreatorUpdateAndMintAuthority` option exists in the
+  SDK, but the program rejects it outside transfer-hook configs — *"Mint
+  authority token update options are only supported for transfer-hook configs"*.
+  A DBC launch always ends with supply permanently fixed. That is good for how
+  the token reads to buyers.
+- **All of the liquidity.** At least 10% of post-migration LP must be
+  permanently locked — *"At least 1000 BPS (10%) must be locked at day 1"*. So
+  `lpOwnership: "locked"` locks 100%, and `max-claimable` locks the 10% minimum
+  and leaves 90% withdrawable by you. `locked` is the default; `max-claimable`
+  is the most the chain allows, and holders can read the setting on chain.
+
+Fees are always collected in SOL rather than in UNEMP, so fee income does not
+create sell pressure on the token.
+
+## Claiming your fees
+
+```bash
+npm run claim
+```
+
+Fees land in two separate on-chain buckets — a creator bucket and a partner
+bucket — and a launch makes your wallet the owner of both. `claim` sweeps both;
+claiming only one would silently strand the other. It prints unclaimed amounts,
+lifetime fees, and your net SOL change.
+
+`npm run owner` shows the unclaimed balances without moving anything.
 
 ## The plain-token path
 
@@ -132,9 +162,14 @@ the URL. `assets/metadata.json` is a ready template:
 4. `npm run launch`, or for the plain-token path `npm run create` (and
    `npm run update-metadata` if the mint already exists).
 
-For `create`, a missing `metadataUri` is fine — name and symbol still show up,
-and you can fill the logo in later while `mutable` is `true`. For `launch` it is
-permanent, so do this step first.
+A missing `metadataUri` is recoverable on both paths as long as you kept the
+update authority (`tokenAuthority: "update"` for a launch, `mutable: true` for
+`create`) — name and symbol still show, just no logo. With
+`tokenAuthority: "immutable"` it is permanent, and `launch` refuses to run
+without one unless you pass `--allow-no-logo`.
+
+Since the URL is what the chain stores, host it somewhere that will outlive your
+interest in it — Arweave or pinned IPFS rather than a personal server.
 
 ## Commands
 
@@ -142,10 +177,13 @@ permanent, so do this step first.
 |---|---|
 | `npm run keygen` | Generate a payer keypair |
 | `npm run airdrop` | Request devnet/testnet SOL (`--amount`) |
+| `npm run preflight` | Check config, logo, wallet, and RPC before a real launch |
 | `npm run launch` | Create mint + bonding curve market — makes it tradeable |
 | `npm run buy -- --amount 0.5` | Buy off the curve, `--amount` in SOL |
 | `npm run sell -- --amount 1000` | Sell into the curve, `--amount` in tokens |
 | `npm run curve` | Price, market cap, SOL raised, progress to graduation |
+| `npm run claim` | Sweep accrued trading fees to your wallet |
+| `npm run owner` | Every role and authority, and whether you hold it |
 | `npm run create` | Plain SPL token instead: mint, metadata, initial supply |
 | `npm run mint -- --amount 1000 --to <wallet>` | Mint more supply (`create` path only) |
 | `npm run transfer -- --amount 50 --to <wallet>` | Send tokens |
@@ -165,8 +203,8 @@ for CI), `UNEMP_CLUSTER`.
 
 ## Authorities (plain-token path only)
 
-A curve launch already drops the mint authority and makes metadata immutable, so
-none of this applies to it. A mint from `create` keeps two authorities, both held
+A curve launch always drops the mint authority, so none of this applies to it —
+see "What you own" above. A mint from `create` keeps two authorities, both held
 by the payer:
 
 - **Mint authority** — can create more tokens. While it exists, supply is not capped.
@@ -187,9 +225,14 @@ Every write against `mainnet-beta` refuses unless you pass `--confirm-mainnet`.
 Real SOL, permanent result:
 
 ```bash
-npm run launch -- --cluster mainnet-beta --confirm-mainnet --dry-run   # review
-npm run launch -- --cluster mainnet-beta --confirm-mainnet             # send
+export UNEMP_RPC_URL="https://your-endpoint"                            # public RPC will rate limit
+npm run preflight -- --cluster mainnet-beta                             # config, logo, funds, RPC
+npm run launch -- --cluster mainnet-beta --confirm-mainnet --dry-run    # review the terms
+npm run launch -- --cluster mainnet-beta --confirm-mainnet              # send
 ```
+
+`preflight` fetches your `metadataUri` and the `image` inside it, so a broken
+logo URL fails there instead of on chain.
 
 Budget roughly 0.1 SOL for the config, pool, mint, metadata, and vault accounts,
 plus whatever `firstBuySol` is set to.

@@ -128,6 +128,12 @@ export function loadCurveConfig(configPath = path.join(ROOT, 'curve.config.json'
   if (typeof raw.firstBuySol !== 'number' || raw.firstBuySol < 0) {
     errors.push('firstBuySol must be a non-negative number');
   }
+  if (!TOKEN_AUTHORITY_CHOICES.includes(raw.tokenAuthority)) {
+    errors.push(`tokenAuthority must be one of: ${TOKEN_AUTHORITY_CHOICES.join(', ')}`);
+  }
+  if (!LP_OWNERSHIP_CHOICES.includes(raw.lpOwnership)) {
+    errors.push(`lpOwnership must be one of: ${LP_OWNERSHIP_CHOICES.join(', ')}`);
+  }
   if (errors.length) {
     throw new Error(`Invalid ${path.basename(configPath)}:\n  - ${errors.join('\n  - ')}`);
   }
@@ -140,8 +146,15 @@ export function loadCurveConfig(configPath = path.join(ROOT, 'curve.config.json'
     creatorTradingFeePercentage: raw.creatorTradingFeePercentage,
     dynamicFeeEnabled: raw.dynamicFeeEnabled !== false,
     firstBuySol: raw.firstBuySol,
+    tokenAuthority: raw.tokenAuthority,
+    lpOwnership: raw.lpOwnership,
   };
 }
+
+// Kept here rather than imported from dbc.js so config validation stays free of
+// the Solana SDKs — the unit tests load this module on its own.
+export const TOKEN_AUTHORITY_CHOICES = ['immutable', 'update'];
+export const LP_OWNERSHIP_CHOICES = ['locked', 'max-claimable'];
 
 const DEPLOYMENTS_DIR = path.join(ROOT, 'deployments');
 

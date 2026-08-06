@@ -3,7 +3,9 @@
   "initialMarketCapSol": 30,
   "migrationMarketCapSol": 400,
   "baseFeeBps": 100,
-  "creatorTradingFeePercentage": 50,
+  "creatorTradingFeePercentage": 100,
   "dynamicFeeEnabled": true,
-  "firstBuySol": 0
+  "firstBuySol": 0,
+  "tokenAuthority": "update",
+  "lpOwnership": "locked"
 }

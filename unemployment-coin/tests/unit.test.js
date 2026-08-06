@@ -3,10 +3,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { assertClusterAllowed, fromBaseUnits, loadCurveConfig, loadTokenConfig, toBaseUnits } from '../src/config.js';
+import {
+  assertClusterAllowed,
+  fromBaseUnits,
+  loadCurveConfig,
+  loadTokenConfig,
+  toBaseUnits,
+  LP_OWNERSHIP_CHOICES,
+  TOKEN_AUTHORITY_CHOICES,
+} from '../src/config.js';
 import { parseArgs } from '../src/cli.js';
 import { spotPrice } from '../src/commands/curve.js';
-import { toTokenDecimal } from '../src/dbc.js';
+import { toTokenDecimal, LP_OWNERSHIP, TOKEN_AUTHORITY } from '../src/dbc.js';
 
 test('toBaseUnits scales whole tokens by decimals', () => {
   assert.equal(toBaseUnits(1, 9), 1_000_000_000n);
@@ -93,6 +101,8 @@ test('loadCurveConfig rejects an unsellable curve', () => {
     creatorTradingFeePercentage: 50,
     dynamicFeeEnabled: true,
     firstBuySol: 0,
+    tokenAuthority: 'update',
+    lpOwnership: 'locked',
   };
 
   // A curve that does not rise would let the pool migrate at its start price.
@@ -104,7 +114,35 @@ test('loadCurveConfig rejects an unsellable curve', () => {
   assert.throws(() => loadCurveConfig(write({ ...base, totalSupply: 0 })), /totalSupply/);
   assert.doesNotThrow(() => loadCurveConfig(write(base)));
 
+  // Options the chain rejects must not be offered by the config at all: the
+  // program refuses mint authority outside transfer-hook configs, and requires
+  // at least 10% of post-migration liquidity locked.
+  assert.throws(() => loadCurveConfig(write({ ...base, tokenAuthority: 'update-and-mint' })), /tokenAuthority/);
+  assert.throws(() => loadCurveConfig(write({ ...base, lpOwnership: 'claimable' })), /lpOwnership/);
+  assert.doesNotThrow(() => loadCurveConfig(write({ ...base, lpOwnership: 'max-claimable' })));
+  assert.doesNotThrow(() => loadCurveConfig(write({ ...base, tokenAuthority: 'immutable' })));
+
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('every ownership choice maps to real curve parameters', () => {
+  for (const authority of TOKEN_AUTHORITY_CHOICES) {
+    assert.ok(authority in TOKEN_AUTHORITY, `${authority} has no TokenAuthorityOption`);
+  }
+  for (const lp of LP_OWNERSHIP_CHOICES) {
+    assert.ok(lp in LP_OWNERSHIP, `${lp} has no liquidity distribution`);
+  }
+  // The chain's floor: never offer a split that would be rejected at launch.
+  for (const split of Object.values(LP_OWNERSHIP)) {
+    assert.ok(
+      split.creatorPermanentLockedLiquidityPercentage >= 10,
+      'at least 10% of liquidity must stay locked'
+    );
+    assert.equal(
+      split.creatorPermanentLockedLiquidityPercentage + split.creatorLiquidityPercentage,
+      100
+    );
+  }
 });
 
 test('spotPrice decodes the Q64.64 square-root price', () => {

@@ -29,15 +29,36 @@ export function lamportsToSol(lamports) {
 }
 
 /**
+ * TokenAuthorityOption values, named for what they mean to the launcher.
+ *
+ * The enum also has CreatorUpdateAndMintAuthority (3), which would keep the mint
+ * authority — but the program rejects it outside transfer-hook configs
+ * ("Mint authority token update options are only supported for transfer-hook
+ * configs"), so a DBC launch always ends with supply permanently fixed.
+ */
+export const TOKEN_AUTHORITY = {
+  immutable: 1, // Immutable
+  update: 0, // CreatorUpdateAuthority
+};
+
+/**
+ * How the creator's share of liquidity is held once the curve graduates.
+ *
+ * The program requires at least 10% locked at day 1, so fully withdrawable
+ * liquidity is not an option: `max-claimable` is the most the chain allows.
+ */
+export const LP_OWNERSHIP = {
+  locked: { creatorPermanentLockedLiquidityPercentage: 100, creatorLiquidityPercentage: 0 },
+  'max-claimable': { creatorPermanentLockedLiquidityPercentage: 10, creatorLiquidityPercentage: 90 },
+};
+
+/**
  * Translate curve.config.json into the SDK's curve parameters.
  *
- * The shape is deliberately opinionated:
- *  - Supply is fixed at creation and the mint authority is dropped, so nobody
- *    (including us) can inflate it later.
- *  - Creator LP is 100% permanently locked at migration, so liquidity cannot be
- *    pulled out from under holders once the curve graduates.
- *  - Fees are collected in SOL rather than the token, so fee income does not
- *    sell pressure the token.
+ * Fees are always collected in SOL rather than the token, so fee income does not
+ * create sell pressure. Everything else about ownership — metadata authority,
+ * mint authority, and whether post-migration liquidity stays withdrawable — is
+ * driven by curve.config.json rather than fixed here.
  */
 export function buildLaunchCurve(curve, tokenDecimals) {
   return buildCurveWithMarketCap({
@@ -45,7 +66,7 @@ export function buildLaunchCurve(curve, tokenDecimals) {
       tokenType: TokenType.SPLToken,
       tokenBaseDecimal: tokenDecimals,
       tokenQuoteDecimal: TokenDecimal.NINE,
-      tokenAuthorityOption: TOKEN_AUTHORITY_IMMUTABLE,
+      tokenAuthorityOption: TOKEN_AUTHORITY[curve.tokenAuthority],
       totalTokenSupply: curve.totalSupply,
       leftover: 0,
     },
@@ -72,10 +93,11 @@ export function buildLaunchCurve(curve, tokenDecimals) {
       migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
     },
     liquidityDistribution: {
+      // Partner and creator are both the launching wallet, so nothing is given
+      // away by putting the whole creator share on one side.
       partnerPermanentLockedLiquidityPercentage: 0,
       partnerLiquidityPercentage: 0,
-      creatorPermanentLockedLiquidityPercentage: 100,
-      creatorLiquidityPercentage: 0,
+      ...LP_OWNERSHIP[curve.lpOwnership],
     },
     lockedVesting: {
       totalLockedVestingAmount: 0,
@@ -89,9 +111,6 @@ export function buildLaunchCurve(curve, tokenDecimals) {
     migrationMarketCap: curve.migrationMarketCapSol,
   });
 }
-
-/** TokenAuthorityOption.Immutable — no mint authority, no metadata updates. */
-const TOKEN_AUTHORITY_IMMUTABLE = 1;
 
 /**
  * The SDK returns decimals as a plain number on the enum; map ours onto it and

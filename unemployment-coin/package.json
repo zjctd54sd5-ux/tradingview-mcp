@@ -16,7 +16,10 @@
     "launch": "node src/cli.js launch",
     "buy": "node src/cli.js buy",
     "sell": "node src/cli.js sell",
-    "curve": "node src/cli.js curve"
+    "curve": "node src/cli.js curve",
+    "claim": "node src/cli.js claim",
+    "owner": "node src/cli.js owner",
+    "preflight": "node src/cli.js preflight"
   },
   "license": "MIT",
   "type": "module",
