@@ -282,7 +282,6 @@ Every write against `mainnet-beta` refuses unless you pass `--confirm-mainnet`.
 Real SOL, permanent result:
 
 ```bash
-export UNEMP_RPC_URL="https://your-endpoint"                            # public RPC will rate limit
 npm run preflight -- --cluster mainnet-beta                             # config, logo, funds, RPC
 npm run launch -- --cluster mainnet-beta --confirm-mainnet --dry-run    # review the terms
 npm run launch -- --cluster mainnet-beta --confirm-mainnet              # send
@@ -290,6 +289,11 @@ npm run launch -- --cluster mainnet-beta --confirm-mainnet              # send
 
 `preflight` fetches your `metadataUri` and the `image` inside it, so a broken
 logo URL fails there instead of on chain.
+
+The public RPC handles a one-off launch — it is two transactions, not a polling
+workload — so `UNEMP_RPC_URL` is optional. Set it to a private endpoint (free key
+at [helius.dev](https://helius.dev)) only if a launch times out, or if you plan to
+poll `curve` often afterwards.
 
 A launch costs **0.033 SOL** in rent and fees — measured, not estimated — for the
 config, pool, mint, metadata, and vault accounts. Add whatever `firstBuySol` is

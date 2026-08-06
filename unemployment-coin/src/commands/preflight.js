@@ -13,7 +13,9 @@ const REQUIRED_SOL = 0.1;
 export async function preflight(argv) {
   const cluster = argv.cluster;
   const checks = [];
-  const add = (ok, label, detail) => checks.push({ ok, label, detail });
+  const add = (ok, label, detail) => checks.push({ level: ok ? 'ok' : 'FAIL', label, detail });
+  // Advice rather than a requirement: shown, but never blocks a launch.
+  const warn = (label, detail) => checks.push({ level: 'warn', label, detail });
 
   let token = null;
   let curve = null;
@@ -80,8 +82,11 @@ export async function preflight(argv) {
     const endpoint = resolveEndpoint(cluster);
     const isPublic = endpoint.includes('api.mainnet-beta.solana.com');
     add(true, 'RPC reachable', `${endpoint} (solana-core ${version['solana-core']})`);
-    if (cluster === 'mainnet-beta') {
-      add(!isPublic, 'RPC is not the public endpoint', isPublic ? 'set UNEMP_RPC_URL — the public RPC will rate limit the launch' : 'custom endpoint in use');
+    if (cluster === 'mainnet-beta' && isPublic) {
+      warn(
+        'using the public RPC',
+        'fine for a one-off launch; set UNEMP_RPC_URL to a private endpoint if it times out'
+      );
     }
 
     if (payer) {
@@ -102,11 +107,11 @@ export async function preflight(argv) {
 
   const width = Math.max(...checks.map((c) => c.label.length));
   console.log(`Preflight for ${cluster}\n`);
-  for (const { ok, label, detail } of checks) {
-    console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${label.padEnd(width)}  ${detail}`);
+  for (const { level, label, detail } of checks) {
+    console.log(`  ${level.padEnd(4)}  ${label.padEnd(width)}  ${detail}`);
   }
 
-  const failed = checks.filter((c) => !c.ok);
+  const failed = checks.filter((c) => c.level === 'FAIL');
   if (failed.length) {
     console.log(`\n${failed.length} check(s) failed. Fix these before launching.`);
     process.exitCode = 1;
