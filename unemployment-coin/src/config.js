@@ -97,6 +97,52 @@ export function fromBaseUnits(baseUnits, decimals) {
   return fraction ? `${whole}.${fraction}` : whole.toString();
 }
 
+/**
+ * Bonding-curve launch parameters. Separate from token.config.json because the
+ * curve governs the *market*, while token.config.json governs the *token*.
+ */
+export function loadCurveConfig(configPath = path.join(ROOT, 'curve.config.json')) {
+  const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+  const errors = [];
+  const positive = (key) => {
+    if (typeof raw[key] !== 'number' || !(raw[key] > 0)) errors.push(`${key} must be a positive number`);
+  };
+  positive('totalSupply');
+  positive('initialMarketCapSol');
+  positive('migrationMarketCapSol');
+
+  if (raw.migrationMarketCapSol <= raw.initialMarketCapSol) {
+    errors.push('migrationMarketCapSol must be greater than initialMarketCapSol — the curve has to rise');
+  }
+  if (!Number.isInteger(raw.baseFeeBps) || raw.baseFeeBps < 0 || raw.baseFeeBps > 9900) {
+    errors.push('baseFeeBps must be an integer between 0 and 9900 (100 = 1%)');
+  }
+  if (
+    !Number.isInteger(raw.creatorTradingFeePercentage) ||
+    raw.creatorTradingFeePercentage < 0 ||
+    raw.creatorTradingFeePercentage > 100
+  ) {
+    errors.push('creatorTradingFeePercentage must be an integer between 0 and 100');
+  }
+  if (typeof raw.firstBuySol !== 'number' || raw.firstBuySol < 0) {
+    errors.push('firstBuySol must be a non-negative number');
+  }
+  if (errors.length) {
+    throw new Error(`Invalid ${path.basename(configPath)}:\n  - ${errors.join('\n  - ')}`);
+  }
+
+  return {
+    totalSupply: raw.totalSupply,
+    initialMarketCapSol: raw.initialMarketCapSol,
+    migrationMarketCapSol: raw.migrationMarketCapSol,
+    baseFeeBps: raw.baseFeeBps,
+    creatorTradingFeePercentage: raw.creatorTradingFeePercentage,
+    dynamicFeeEnabled: raw.dynamicFeeEnabled !== false,
+    firstBuySol: raw.firstBuySol,
+  };
+}
+
 const DEPLOYMENTS_DIR = path.join(ROOT, 'deployments');
 
 export function deploymentPath(cluster) {

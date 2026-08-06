@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { assertClusterAllowed, fromBaseUnits, loadTokenConfig, toBaseUnits } from '../src/config.js';
+import { assertClusterAllowed, fromBaseUnits, loadCurveConfig, loadTokenConfig, toBaseUnits } from '../src/config.js';
 import { parseArgs } from '../src/cli.js';
+import { spotPrice } from '../src/commands/curve.js';
+import { toTokenDecimal } from '../src/dbc.js';
 
 test('toBaseUnits scales whole tokens by decimals', () => {
   assert.equal(toBaseUnits(1, 9), 1_000_000_000n);
@@ -68,6 +70,61 @@ test('the checked-in token.config.json is valid', () => {
   assert.equal(config.name, 'Unemployment Coin');
   assert.equal(config.symbol, 'UNEMP');
   assert.equal(config.decimals, 9);
+});
+
+test('the checked-in curve.config.json is valid', () => {
+  const curve = loadCurveConfig();
+  assert.equal(curve.totalSupply, 1_000_000_000);
+  assert.ok(curve.migrationMarketCapSol > curve.initialMarketCapSol);
+});
+
+test('loadCurveConfig rejects an unsellable curve', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unemp-curve-'));
+  const write = (config) => {
+    const file = path.join(dir, `${Math.random()}.json`);
+    fs.writeFileSync(file, JSON.stringify(config));
+    return file;
+  };
+  const base = {
+    totalSupply: 1_000_000_000,
+    initialMarketCapSol: 30,
+    migrationMarketCapSol: 400,
+    baseFeeBps: 100,
+    creatorTradingFeePercentage: 50,
+    dynamicFeeEnabled: true,
+    firstBuySol: 0,
+  };
+
+  // A curve that does not rise would let the pool migrate at its start price.
+  assert.throws(() => loadCurveConfig(write({ ...base, migrationMarketCapSol: 30 })), /must be greater than/);
+  assert.throws(() => loadCurveConfig(write({ ...base, migrationMarketCapSol: 10 })), /must be greater than/);
+  assert.throws(() => loadCurveConfig(write({ ...base, baseFeeBps: 10_000 })), /baseFeeBps/);
+  assert.throws(() => loadCurveConfig(write({ ...base, creatorTradingFeePercentage: 101 })), /creatorTradingFee/);
+  assert.throws(() => loadCurveConfig(write({ ...base, firstBuySol: -1 })), /firstBuySol/);
+  assert.throws(() => loadCurveConfig(write({ ...base, totalSupply: 0 })), /totalSupply/);
+  assert.doesNotThrow(() => loadCurveConfig(write(base)));
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('spotPrice decodes the Q64.64 square-root price', () => {
+  // The sqrtPrice a 30 SOL starting market cap on 1e9 supply produces on chain;
+  // squaring it must give back 30 / 1e9 = 3e-8 SOL per token.
+  const price = spotPrice('3195071295335987', 9);
+  assert.ok(Math.abs(price - 3e-8) < 1e-12, `expected ~3e-8, got ${price}`);
+  assert.ok(Math.abs(price * 1e9 - 30) < 1e-3, 'market cap should round-trip to 30 SOL');
+});
+
+test('spotPrice scales with base decimals', () => {
+  // Six-decimal tokens are worth 1000x more per whole token at the same sqrtPrice.
+  assert.ok(Math.abs(spotPrice('3195071295335987', 6) / spotPrice('3195071295335987', 9) - 1e-3) < 1e-9);
+});
+
+test('a bonding-curve launch rejects decimals the program will not take', () => {
+  assert.equal(toTokenDecimal(9), 9);
+  assert.equal(toTokenDecimal(6), 6);
+  assert.throws(() => toTokenDecimal(2), /6, 7, 8, or 9 decimals/);
+  assert.throws(() => toTokenDecimal(18), /6, 7, 8, or 9 decimals/);
 });
 
 test('loadTokenConfig rejects out-of-spec values', () => {

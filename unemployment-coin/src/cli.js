@@ -9,11 +9,18 @@ import { transfer } from './commands/transfer.js';
 import { revoke } from './commands/revoke.js';
 import { info } from './commands/info.js';
 import { updateMetadata } from './commands/update-metadata.js';
+import { launch } from './commands/launch.js';
+import { buy, sell } from './commands/trade.js';
+import { curveStatus } from './commands/curve.js';
 
 const COMMANDS = {
   keygen: { run: keygen, help: 'Generate a local payer keypair' },
   airdrop: { run: airdrop, help: 'Request devnet/testnet SOL for the payer' },
-  create: { run: create, help: 'Create the mint, write metadata, mint initial supply' },
+  launch: { run: launch, help: 'Launch on a bonding curve — mint + market in one go (tradeable)' },
+  buy: { run: buy, help: 'Buy off the curve      (--amount <SOL>)' },
+  sell: { run: sell, help: 'Sell into the curve    (--amount <tokens>)' },
+  curve: { run: curveStatus, help: 'Curve price, SOL raised, progress to graduation' },
+  create: { run: create, help: 'Create a plain SPL token instead (no market)' },
   mint: { run: mint, help: 'Mint additional supply  (--amount, --to)' },
   transfer: { run: transfer, help: 'Send tokens         (--amount, --to)' },
   revoke: { run: revoke, help: 'Drop authorities permanently (--mint-authority, --freeze-authority, --yes)' },
@@ -22,7 +29,16 @@ const COMMANDS = {
 };
 
 // Flags that take a value; everything else is boolean.
-const VALUE_FLAGS = new Set(['cluster', 'keypair', 'mint', 'mint-keypair', 'amount', 'to']);
+const VALUE_FLAGS = new Set([
+  'cluster',
+  'keypair',
+  'mint',
+  'mint-keypair',
+  'amount',
+  'to',
+  'pool',
+  'slippage-bps',
+]);
 
 function toCamel(flag) {
   return flag.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
@@ -63,6 +79,8 @@ function usage() {
   console.log(`  --cluster <name>     ${Object.keys(CLUSTERS).join(' | ')}  (default: devnet)`);
   console.log('  --keypair <path>     Payer keypair file (default: .keys/<cluster>-payer.json)');
   console.log('  --mint <address>     Target mint (default: the one in deployments/<cluster>.json)');
+  console.log('  --pool <address>     Target curve pool (default: the one in deployments/<cluster>.json)');
+  console.log('  --slippage-bps <n>   Slippage tolerance for buy/sell (default: 100 = 1%)');
   console.log('  --dry-run            Print what would happen without sending a transaction');
   console.log('  --confirm-mainnet    Required for any write against mainnet-beta');
   console.log('\nEnvironment:');
