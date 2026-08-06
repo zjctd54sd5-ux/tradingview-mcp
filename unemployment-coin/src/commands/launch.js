@@ -1,7 +1,14 @@
 import { Keypair, LAMPORTS_PER_SOL, sendAndConfirmTransaction } from '@solana/web3.js';
 import BN from 'bn.js';
 import { buildContext } from '../context.js';
-import { explorerUrl, loadCurveConfig, loadDeployment, loadTokenConfig, saveDeployment } from '../config.js';
+import {
+  explorerUrl,
+  loadCurveConfig,
+  loadDeployment,
+  loadTokenConfig,
+  saveDeployment,
+  MIN_LAUNCH_SOL,
+} from '../config.js';
 import { deriveDbcPoolAddress } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import {
   buildLaunchCurve,
@@ -14,10 +21,6 @@ import {
 } from '../dbc.js';
 import { readKeypairFile } from '../wallet.js';
 
-// Config account, pool account, mint, metadata, vaults, plus fees. Measured at
-// 0.0327 SOL against a local validator; this leaves headroom without blocking a
-// small launch — the earlier 0.1 estimate was 3x the real cost.
-const MIN_SOL = 0.05;
 
 const AUTHORITY_DESCRIPTION = {
   immutable: 'immutable — metadata fixed forever, supply fixed',
@@ -109,11 +112,11 @@ export async function launch(argv) {
   }
 
   const balance = await connection.getBalance(payer.publicKey);
-  const needed = MIN_SOL * LAMPORTS_PER_SOL + firstBuy.toNumber();
+  const needed = MIN_LAUNCH_SOL * LAMPORTS_PER_SOL + firstBuy.toNumber();
   if (balance < needed) {
     throw new Error(
       `Payer has ${balance / LAMPORTS_PER_SOL} SOL but needs about ${needed / LAMPORTS_PER_SOL} ` +
-        `(${MIN_SOL} for accounts and fees${curve.firstBuySol ? ` + ${curve.firstBuySol} for the first buy` : ''}).`
+        `(${MIN_LAUNCH_SOL} for accounts and fees${curve.firstBuySol ? ` + ${curve.firstBuySol} for the first buy` : ''}).`
     );
   }
 

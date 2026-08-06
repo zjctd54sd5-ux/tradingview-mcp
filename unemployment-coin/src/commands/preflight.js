@@ -1,10 +1,9 @@
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { buildContext } from '../context.js';
-import { loadCurveConfig, loadDeployment, loadTokenConfig, resolveEndpoint } from '../config.js';
+import { loadCurveConfig, loadDeployment, loadTokenConfig, resolveEndpoint, MIN_LAUNCH_SOL } from '../config.js';
 import { buildLaunchCurve, lamportsToSol, toTokenDecimal } from '../dbc.js';
 import { loadKeypair } from '../wallet.js';
 
-const REQUIRED_SOL = 0.1;
 
 /**
  * Check everything that has to be true before a real launch, so failures show
@@ -91,7 +90,7 @@ export async function preflight(argv) {
 
     if (payer) {
       const balance = await connection.getBalance(payer.publicKey);
-      const needed = REQUIRED_SOL + (curve?.firstBuySol ?? 0);
+      const needed = MIN_LAUNCH_SOL + (curve?.firstBuySol ?? 0);
       add(
         balance >= needed * LAMPORTS_PER_SOL,
         'wallet funded',

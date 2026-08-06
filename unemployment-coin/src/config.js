@@ -156,6 +156,16 @@ export function loadCurveConfig(configPath = path.join(ROOT, 'curve.config.json'
 export const TOKEN_AUTHORITY_CHOICES = ['immutable', 'update'];
 export const LP_OWNERSHIP_CHOICES = ['locked', 'max-claimable'];
 
+/**
+ * SOL a launch needs beyond `firstBuySol`, for the config, pool, mint, metadata,
+ * and vault accounts. Measured at 0.0327 against a local validator; this keeps
+ * headroom without demanding money the launch will not spend.
+ *
+ * Shared so `preflight` and `launch` cannot disagree about what is affordable —
+ * they did, and preflight was refusing launches that would have worked.
+ */
+export const MIN_LAUNCH_SOL = 0.05;
+
 const DEPLOYMENTS_DIR = path.join(ROOT, 'deployments');
 
 export function deploymentPath(cluster) {
