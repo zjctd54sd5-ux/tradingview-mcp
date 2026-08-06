@@ -14,7 +14,8 @@ import {
 } from '../src/config.js';
 import { parseArgs } from '../src/cli.js';
 import { spotPrice } from '../src/commands/curve.js';
-import { toTokenDecimal, LP_OWNERSHIP, TOKEN_AUTHORITY } from '../src/dbc.js';
+import { Connection } from '@solana/web3.js';
+import { buildLaunchCurve, dbcClient, previewBuy, toTokenDecimal, LP_OWNERSHIP, TOKEN_AUTHORITY } from '../src/dbc.js';
 
 test('toBaseUnits scales whole tokens by decimals', () => {
   assert.equal(toBaseUnits(1, 9), 1_000_000_000n);
@@ -123,6 +124,28 @@ test('loadCurveConfig rejects an unsellable curve', () => {
   assert.doesNotThrow(() => loadCurveConfig(write({ ...base, tokenAuthority: 'immutable' })));
 
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('previewBuy matches what the chain actually gives for a dev buy', () => {
+  const token = loadTokenConfig();
+  const curve = loadCurveConfig();
+  const built = buildLaunchCurve(curve, toTokenDecimal(token.decimals));
+  // Unreachable endpoint: the preview must be pure math, so --dry-run can show
+  // the dev buy before any pool exists.
+  const client = dbcClient(new Connection('http://127.0.0.1:1'));
+
+  const preview = previewBuy(client, built, 10, token.decimals, curve.totalSupply);
+  // Verified on chain: a 10 SOL first buy landed exactly 252,824,930 UNEMP.
+  assert.equal(Math.round(preview.tokens), 252_824_930);
+  assert.ok(Math.abs(preview.percentOfSupply - 25.28) < 0.01);
+
+  // Bigger spend buys more, but at a worse average price as the curve rises.
+  const small = previewBuy(client, built, 1, token.decimals, curve.totalSupply);
+  const big = previewBuy(client, built, 20, token.decimals, curve.totalSupply);
+  assert.ok(big.tokens > preview.tokens && preview.tokens > small.tokens);
+  assert.ok(big.tokens / 20 < small.tokens / 1, 'later tokens must cost more per SOL');
+
+  assert.equal(previewBuy(client, built, 0, token.decimals, curve.totalSupply), null);
 });
 
 test('every ownership choice maps to real curve parameters', () => {

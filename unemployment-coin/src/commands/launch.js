@@ -3,7 +3,15 @@ import BN from 'bn.js';
 import { buildContext } from '../context.js';
 import { explorerUrl, loadCurveConfig, loadDeployment, loadTokenConfig, saveDeployment } from '../config.js';
 import { deriveDbcPoolAddress } from '@meteora-ag/dynamic-bonding-curve-sdk';
-import { buildLaunchCurve, dbcClient, lamportsToSol, solToLamports, toTokenDecimal, WSOL_MINT } from '../dbc.js';
+import {
+  buildLaunchCurve,
+  dbcClient,
+  lamportsToSol,
+  previewBuy,
+  solToLamports,
+  toTokenDecimal,
+  WSOL_MINT,
+} from '../dbc.js';
 import { readKeypairFile } from '../wallet.js';
 
 // Config account, pool account, mint, metadata, vaults, plus fees.
@@ -58,7 +66,18 @@ export async function launch(argv) {
   console.log(`  goes to you:      creator + partner fees, both claimable with "npm run claim"`);
   console.log(`Creator LP:         ${curve.lpOwnership === 'locked' ? '100% permanently locked at migration' : '90% claimable by you after migration, 10% locked (the chain minimum)'}`);
   console.log(`Token authority:    ${AUTHORITY_DESCRIPTION[curve.tokenAuthority]}`);
-  console.log(`Your first buy:     ${curve.firstBuySol} SOL`);
+
+  const client = dbcClient(connection);
+  const preview = previewBuy(client, curveParams, curve.firstBuySol, token.decimals, curve.totalSupply);
+  if (preview) {
+    console.log(
+      `Your first buy:     ${curve.firstBuySol} SOL -> ` +
+        `${preview.tokens.toLocaleString('en-US', { maximumFractionDigits: 0 })} ${token.symbol} ` +
+        `(${preview.percentOfSupply.toFixed(2)}% of supply)`
+    );
+  } else {
+    console.log(`Your first buy:     none — you start with 0 ${token.symbol}, holding only the fee stream`);
+  }
 
   if (curve.lpOwnership === 'max-claimable') {
     console.log(
@@ -95,8 +114,6 @@ export async function launch(argv) {
         `(${MIN_SOL} for accounts and fees${curve.firstBuySol ? ` + ${curve.firstBuySol} for the first buy` : ''}).`
     );
   }
-
-  const client = dbcClient(connection);
 
   console.log('\n[1/2] Building config + pool transaction...');
   const shared = {

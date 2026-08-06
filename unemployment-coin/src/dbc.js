@@ -113,6 +113,36 @@ export function buildLaunchCurve(curve, tokenDecimals) {
 }
 
 /**
+ * What a given SOL spend buys off the curve, before the pool exists.
+ *
+ * Pure math over the built curve parameters — no chain access — so `--dry-run`
+ * can show what a dev buy actually gets while there is still time to change it.
+ * Matches the on-chain quote exactly.
+ */
+export function previewBuy(client, builtCurve, sol, baseDecimals, totalSupply) {
+  if (!(sol > 0)) return null;
+
+  const quote = client.pool.getQuoteFromInputAmount({
+    config: {
+      poolFees: builtCurve.poolFees,
+      collectFeeMode: builtCurve.collectFeeMode,
+      sqrtStartPrice: builtCurve.sqrtStartPrice,
+      migrationQuoteThreshold: builtCurve.migrationQuoteThreshold,
+      curve: builtCurve.curve,
+    },
+    swapBaseForQuote: false,
+    amountIn: solToLamports(sol),
+    slippageBps: 0,
+    hasReferral: false,
+    currentPoint: new BN(0),
+    eligibleForFirstSwapWithMinFee: false,
+  });
+
+  const tokens = Number(BigInt(quote.outputAmount.toString())) / 10 ** baseDecimals;
+  return { tokens, percentOfSupply: (tokens / totalSupply) * 100 };
+}
+
+/**
  * The SDK returns decimals as a plain number on the enum; map ours onto it and
  * reject anything the curve program will not accept.
  */

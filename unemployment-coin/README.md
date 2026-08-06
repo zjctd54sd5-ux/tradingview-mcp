@@ -57,7 +57,7 @@ If the public devnet faucet is rate limited, get SOL from
 | `baseFeeBps` | Trading fee, 100 = 1% |
 | `creatorTradingFeePercentage` | Split between your creator and partner buckets — both are your wallet |
 | `dynamicFeeEnabled` | Add a volatility surcharge on top of the base fee |
-| `firstBuySol` | SOL you spend buying your own token in the launch tx |
+| `firstBuySol` | SOL you spend buying your own token in the launch tx — see below |
 | `tokenAuthority` | `update` (keep metadata authority) or `immutable` |
 | `lpOwnership` | `locked` or `max-claimable` (see below) |
 
@@ -74,6 +74,7 @@ leftover receiver. `npm run owner` reads them back off chain and marks each one
 | Thing | Who has it |
 |---|---|
 | Trading fees | You, both buckets — `npm run claim` |
+| Tokens at launch | None, unless you set `firstBuySol` — see below |
 | Unsold tokens after migration | You, as leftover receiver |
 | Metadata (name, symbol, logo) | You, while `tokenAuthority` is `update` |
 | Supply | Nobody — permanently fixed at launch |
@@ -94,6 +95,41 @@ leftover receiver. `npm run owner` reads them back off chain and marks each one
 
 Fees are always collected in SOL rather than in UNEMP, so fee income does not
 create sell pressure on the token.
+
+## Owning a share of your own token
+
+A curve launch starts you with **zero tokens** — the whole supply is on the curve
+for sale, and what you hold is the fee stream. To hold tokens too, set
+`firstBuySol` and the launch buys them for you in the same transaction, at the
+lowest price the curve will ever offer.
+
+On the committed curve (1B supply, 30 → 400 SOL market cap):
+
+| `firstBuySol` | You receive | % of supply |
+|---|---|---|
+| 1 | 32.0M | 3.20% |
+| 5 | 143.2M | 14.32% |
+| 10 | 252.8M | 25.28% |
+| 20 | 409.8M | 40.98% |
+| 40 | 594.3M | 59.43% |
+| 86 (the whole threshold) | 782.9M | 78.29% |
+
+`npm run launch -- --dry-run` computes this for whatever curve you configure and
+prints it before sending anything.
+
+**100% is not reachable.** Even spending every SOL the curve accepts tops out
+near 78% — the remainder becomes AMM liquidity at graduation. If you want the
+entire supply, use `npm run create` instead and accept that nothing is tradeable
+until you build a market yourself.
+
+`firstBuySol` ships as `0` deliberately: it is real money, and a non-zero default
+would spend it on the first launch you run by accident. Set it on purpose.
+
+Two things to weigh before picking a large number. The SOL you spend goes into
+the curve's own reserve, so a big dev buy pushes the pool most of the way to its
+migration threshold on its own — 10 SOL takes the committed curve to 11.5%.
+And screeners publish top-holder concentration, so a wallet holding 25%+ is
+visible to anyone deciding whether to buy.
 
 ## Claiming your fees
 
@@ -218,6 +254,20 @@ npm run revoke -- --mint-authority --yes
 
 This is irreversible. `--no-freeze` on `create` skips the freeze authority from
 the start. Without `--yes`, `revoke` prints what it would do and stops.
+
+## Where it shows up after launch
+
+There is nothing to "list" on and no application to file. DexScreener, Birdeye,
+and GeckoTerminal are indexers, not launchpads — they watch the chain and pick up
+pools on their own once trades exist. Creating the pool *is* the listing step.
+
+- **Jupiter** routes to Meteora DBC pools immediately, so the token is buyable by
+  mint address from wallets and aggregators as soon as the launch confirms. This
+  is the one that matters, since most Solana swap volume goes through it rather
+  than any DEX's own interface.
+- **Solscan / Solana Explorer** show the mint and pool right away.
+- **DexScreener / Birdeye** charts populate off trading activity, so they follow
+  once there is some.
 
 ## Going to mainnet
 
