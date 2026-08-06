@@ -1,0 +1,32 @@
+{
+  "name": "unemployment-coin",
+  "version": "1.0.0",
+  "description": "SPL token tooling for Unemployment Coin (UNEMP) on Solana",
+  "scripts": {
+    "unemp": "node src/cli.js",
+    "keygen": "node src/cli.js keygen",
+    "airdrop": "node src/cli.js airdrop",
+    "create": "node src/cli.js create",
+    "mint": "node src/cli.js mint",
+    "transfer": "node src/cli.js transfer",
+    "revoke": "node src/cli.js revoke",
+    "update-metadata": "node src/cli.js update-metadata",
+    "info": "node src/cli.js info",
+    "test": "node --test tests/*.test.js"
+  },
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^0.9.2",
+    "@metaplex-foundation/umi-bundle-defaults": "^0.9.2",
+    "@metaplex-foundation/umi-web3js-adapters": "^0.9.2",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.98.4",
+    "bs58": "^6.0.0"
+  },
+  "bin": {
+    "unemp": "src/cli.js"
+  }
+}

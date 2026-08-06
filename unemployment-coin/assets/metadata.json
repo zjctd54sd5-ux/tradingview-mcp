@@ -1,0 +1,17 @@
+{
+  "name": "Unemployment Coin",
+  "symbol": "UNEMP",
+  "description": "Unemployment Coin (UNEMP). An SPL token on Solana.",
+  "image": "https://example.com/unemp.png",
+  "external_url": "https://example.com",
+  "attributes": [],
+  "properties": {
+    "files": [
+      {
+        "uri": "https://example.com/unemp.png",
+        "type": "image/png"
+      }
+    ],
+    "category": "image"
+  }
+}

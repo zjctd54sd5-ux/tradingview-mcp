@@ -1,0 +1,8 @@
+{
+  "name": "Unemployment Coin",
+  "symbol": "UNEMP",
+  "decimals": 9,
+  "initialSupply": 1000000000,
+  "metadataUri": "",
+  "mutable": true
+}

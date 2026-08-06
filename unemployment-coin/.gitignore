@@ -1,0 +1,5 @@
+node_modules/
+
+# Wallet secret keys — never commit these.
+.keys/
+*.keypair.json
