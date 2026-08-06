@@ -107,6 +107,7 @@ On the committed curve (1B supply, 30 → 400 SOL market cap):
 
 | `firstBuySol` | You receive | % of supply |
 |---|---|---|
+| 0.2 | 6.6M | 0.66% |
 | 1 | 32.0M | 3.20% |
 | 5 | 143.2M | 14.32% |
 | 10 | 252.8M | 25.28% |
@@ -116,6 +117,12 @@ On the committed curve (1B supply, 30 → 400 SOL market cap):
 
 `npm run launch -- --dry-run` computes this for whatever curve you configure and
 prints it before sending anything.
+
+Your share depends as much on `initialMarketCapSol` as on what you spend, because
+it sets the opening price. On the committed 30 SOL start, 0.2 SOL buys 0.66%; drop
+the start to 1 SOL and the same 0.2 SOL buys roughly 16%. Lowering the start also
+lowers the SOL needed to graduate. Both are worth tuning together to the size of
+launch you actually want.
 
 **100% is not reachable.** Even spending every SOL the curve accepts tops out
 near 78% — the remainder becomes AMM liquidity at graduation. If you want the
@@ -284,8 +291,12 @@ npm run launch -- --cluster mainnet-beta --confirm-mainnet              # send
 `preflight` fetches your `metadataUri` and the `image` inside it, so a broken
 logo URL fails there instead of on chain.
 
-Budget roughly 0.1 SOL for the config, pool, mint, metadata, and vault accounts,
-plus whatever `firstBuySol` is set to.
+A launch costs **0.033 SOL** in rent and fees — measured, not estimated — for the
+config, pool, mint, metadata, and vault accounts. Add whatever `firstBuySol` is
+set to. The balance guard requires 0.05 SOL of headroom on top of the buy.
+
+That makes the floor low: a wallet holding 0.273 SOL completes a launch with a
+0.2 SOL dev buy and 0.038 SOL left over, verified end to end.
 
 Rehearse the whole thing on devnet or localnet first. A mainnet launch cannot be
 undone, edited, or relaunched at the same address: supply, name, symbol, logo,

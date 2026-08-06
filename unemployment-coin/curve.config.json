@@ -5,7 +5,7 @@
   "baseFeeBps": 100,
   "creatorTradingFeePercentage": 100,
   "dynamicFeeEnabled": true,
-  "firstBuySol": 10,
+  "firstBuySol": 0.2,
   "tokenAuthority": "update",
   "lpOwnership": "locked"
 }

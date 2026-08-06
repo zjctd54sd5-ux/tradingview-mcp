@@ -14,8 +14,10 @@ import {
 } from '../dbc.js';
 import { readKeypairFile } from '../wallet.js';
 
-// Config account, pool account, mint, metadata, vaults, plus fees.
-const MIN_SOL = 0.1;
+// Config account, pool account, mint, metadata, vaults, plus fees. Measured at
+// 0.0327 SOL against a local validator; this leaves headroom without blocking a
+// small launch — the earlier 0.1 estimate was 3x the real cost.
+const MIN_SOL = 0.05;
 
 const AUTHORITY_DESCRIPTION = {
   immutable: 'immutable — metadata fixed forever, supply fixed',
